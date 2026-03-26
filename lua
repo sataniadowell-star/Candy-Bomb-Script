@@ -1,152 +1,157 @@
--- 🍭 CANDY BOMB DETECTOR v3.0 | FULL GUI | DELTA EXECUTOR
--- Escape Tsunami For Brainrot - Trading Plaza Candy Game
+-- 🍭 AESTHETIC CANDY BOMB DETECTOR v4.0 | DELTA EXECUTOR
+-- Escape Tsunami For Brainrot - Trading Plaza | Enemy Bomb Scanner
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local Players,TweenService,RunService=game:GetService("Players"),game:GetService("TweenService"),game:GetService("RunService")
+local player=Players.LocalPlayer,playerGui=player:WaitForChild("PlayerGui")
 
 -- Config
-local DETECT_DISTANCE = 100
-local SCAN_INTERVAL = 0.1
-local highlights = {}
-local detectedBombs = {}
-local guiOpen = true
+local DETECT_DISTANCE=120,SCAN_INTERVAL=.08
+local highlights={},detectedBombs={},isScanning=true,minimized=false
 
--- Bomb Detection
-local function isBomb(part)
-    local bombNames = {"Bomb", "bomb", "Explosive", "TNT", "💣", "mine"}
-    for _, name in pairs(bombNames) do 
-        if string.find(string.lower(part.Name), name) then return true end 
-    end
-    return part:FindFirstChild("Bomb") or part:GetAttribute("IsBomb")
+-- Enemy Bomb Detection
+local function isEnemyBomb(part)
+ local enemyNames={"Bomb","bomb","TNT","💣","Explosive","mine","trap"}
+ for _,name in pairs(enemyNames)do if string.find(string.lower(part.Name),name)then return true end end
+ return part:FindFirstChild("Bomb")or part:GetAttribute("IsBomb")or part.Name:lower():find("enemy")
 end
 
-local function createHighlight(part)
-    if highlights[part] then return end
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "BombHighlight"
-    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-    highlight.FillTransparency = 0.3
-    highlight.OutlineTransparency = 0
-    highlight.Parent = part
-    highlights[part] = highlight
+local function createRedHighlight(part)
+ if highlights[part]then return end
+ local hl=Instance.new("Highlight")hl.Name="EnemyBombRed"
+ hl.FillColor=Color3.fromRGB(255,30,30),hl.OutlineColor=Color3.fromRGB(255,255,50)
+ hl.FillTransparency=.2,hl.OutlineTransparency=0,hl.Parent=part
+ 
+ -- Pulsing Animation
+ spawn(function()
+  while hl.Parent do
+   TweenService:Create(hl,TweenInfo.new(.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{FillTransparency=.1}):Play()
+   wait(.6)
+  end
+ end)
+ highlights[part]=hl
 end
 
 local function removeHighlight(part)
-    if highlights[part] then 
-        highlights[part]:Destroy() 
-        highlights[part] = nil 
-    end
+ if highlights[part]then highlights[part]:Destroy()highlights[part]=nil end
 end
 
-local function scanBombs()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return 0 end
-    
-    local playerPos = character.HumanoidRootPart.Position
-    local bombCount = 0
-    
-    for part, _ in pairs(detectedBombs) do
-        if not part.Parent then 
-            removeHighlight(part) 
-            detectedBombs[part] = nil 
-        end
-    end
-    
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Parent ~= character then
-            local distance = (obj.Position - playerPos).Magnitude
-            if distance <= DETECT_DISTANCE and isBomb(obj) then
-                detectedBombs[obj] = true
-                createHighlight(obj)
-                bombCount = bombCount + 1
-            end
-        end
-    end
-    return bombCount
+local function scanEnemyBombs()
+ if not isScanning then return 0 end
+ local char=player.Character if not char or not char:FindFirstChild("HumanoidRootPart")then return 0 end
+ local pos=char.HumanoidRootPart.Position local count=0
+ 
+ -- Cleanup
+ for part,_ in pairs(detectedBombs)do if not part.Parent then removeHighlight(part)detectedBombs[part]=nil end end
+ 
+ -- Scan
+ for _,obj in pairs(workspace:GetDescendants())do
+  if obj:IsA("BasePart")and(obj.Parent~=char)and(obj.Position-pos).Magnitude<=DETECT_DISTANCE then
+   if isEnemyBomb(obj)then detectedBombs[obj]=true createRedHighlight(obj)count=count+1 end
+  end
+ end
+ return count
 end
 
--- 🔥 ADVANCED GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "CandyBombDetector"
-screenGui.Parent = playerGui
-screenGui.ResetOnSpawn = false
+-- 🖼️ AESTHETIC COMPACT GUI (200x120)
+local sg=Instance.new("ScreenGui")sg.Name="CandyBombGUI"sg.ResetOnSpawn=false sg.Parent=playerGui
 
--- Main Frame
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 320, 0, 220)
-mainFrame.Position = UDim2.new(0, 20, 0, 20)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-mainFrame.BorderSizePixel = 0
-mainFrame.Parent = screenGui
+local mainFrame=Instance.new("Frame")
+mainFrame.Size=UDim2.new(0,200,0,minimized and 40 or 120)
+mainFrame.Position=UDim2.new(0,15,0,15)
+mainFrame.BackgroundColor3=Color3.fromRGB(15,20,30)
+mainFrame.BorderSizePixel=0 mainFrame.Parent=sg
 
-local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 12)
-mainCorner.Parent = mainFrame
+-- Glass Effect
+local ug=Instance.new("UIGradient")
+ug.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,Color3.fromRGB(30,40,60)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,15,25))}
+ug.Rotation=45 ug.Parent=mainFrame
 
-local mainStroke = Instance.new("UIStroke")
-mainStroke.Color = Color3.fromRGB(100, 200, 255)
-mainStroke.Thickness = 2
-mainStroke.Parent = mainFrame
+local corner=Instance.new("UICorner")corner.CornerRadius=UDim.new(0,12)corner.Parent=mainFrame
+local stroke=Instance.new("UIStroke")stroke.Color=Color3.fromRGB(100,150,255)stroke.Thickness=1.5 stroke.Transparency=.3 stroke.Parent=mainFrame
 
--- Title
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 50)
-titleLabel.Position = UDim2.new(0, 0, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "🍭 CANDY BOMB DETECTOR"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-titleLabel.TextScaled = true
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Parent = mainFrame
+-- Header Bar (Draggable)
+local header=Instance.new("Frame")header.Size=UDim2.new(1,0,0,.33)header.BackgroundTransparency=1 header.Parent=mainFrame
 
--- Bomb Counter
-local bombFrame = Instance.new("Frame")
-bombFrame.Size = UDim2.new(1, -20, 0, 60)
-bombFrame.Position = UDim2.new(0, 10, 0, 55)
-bombFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-bombFrame.Parent = mainFrame
+local title=Instance.new("TextLabel")
+title.Size=UDim2.new(1,-40,1,0)title.BackgroundTransparency=1
+title.Text="🍭 BOMB SCANNER"title.TextColor3=Color3.fromRGB(255,220,100)
+title.TextScaled=true title.Font=Enum.Font.GothamBold title.TextXAlignment=Enum.TextXAlignment.Left
+title.Position=UDim2.new(0,10,0,0) title.Parent=header
 
-local bombCorner = Instance.new("UICorner")
-bombCorner.CornerRadius = UDim.new(0, 8)
-bombCorner.Parent = bombFrame
+-- Minimize Button
+local minBtn=Instance.new("TextButton")
+minBtn.Size=UDim2.new(0,25,0,25)minBtn.Position=UDim2.new(1,-30,0,7.5)
+minBtn.BackgroundColor3=Color3.fromRGB(255,80,80)minBtn.Text="−"minBtn.TextColor3=Color3.new(1)
+minBtn.TextScaled=true minBtn.Font=Enum.Font.GothamBold minBtn.Parent=header
 
-local bombLabel = Instance.new("TextLabel")
-bombLabel.Size = UDim2.new(1, 0, 1, 0)
-bombLabel.BackgroundTransparency = 1
-bombLabel.Text = "0 ENEMY BOMBS"
-bombLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-bombLabel.TextScaled = true
-bombLabel.Font = Enum.Font.GothamBold
-bombLabel.Parent = bombFrame
+local minCorner=Instance.new("UICorner")minCorner.CornerRadius=UDim.new(0,6)minCorner.Parent=minBtn
 
--- Status
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -20, 0, 30)
-statusLabel.Position = UDim2.new(0, 10, 0, 125)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "🔍 Scanning for enemy bombs..."
-statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-statusLabel.TextScaled = true
-statusLabel.Font = Enum.Font.Gotham
-statusLabel.Parent = mainFrame
+-- Bomb Counter (Main Content)
+local bombFrame=Instance.new("Frame")bombFrame.Size=UDim2.new(1,-10,0,50)
+bombFrame.Position=UDim2.new(0,5,0,.4)bombFrame.BackgroundTransparency=1 bombFrame.Parent=mainFrame
 
--- Toggle Button
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 100, 0, 35)
-toggleBtn.Position = UDim2.new(1, -110, 1, -45)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-toggleBtn.Text = "TOGGLE"
-toggleBtn.TextColor3 = Color3.new(1,1,1)
-toggleBtn.TextScaled = true
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.Parent = mainFrame
+local bombIcon=Instance.new("TextLabel")bombIcon.Size=UDim2.new(0,40,1,0)bombIcon.BackgroundTransparency=1
+bombIcon.Text="💣"bombIcon.TextSize=28 bombIcon.TextColor3=Color3.fromRGB(255,100,100)
+bombIcon.Font=Enum.Font.SourceSansBold bombIcon.Parent=bombFrame
 
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 8)
+local bombCount=Instance.new("TextLabel")bombCount.Size=UDim2.new(1,-45,1,0)bombCount.Position=UDim2.new(0,.25,0,0)
+bombCount.BackgroundTransparency=1 bombCount.Text="0"bombCount.TextColor3=Color3.fromRGB(0,255,150)
+bombCount.TextScaled=true bombCount.Font=Enum.Font.GothamBlack bombCount.TextXAlignment=Enum.TextXAlignment.Left
+bombCount.Parent=bombFrame
+
+local bombText=Instance.new("TextLabel")bombText.Size=UDim2.new(1,-45,0,20)
+bombText.Position=UDim2.new(0,.25,1,-20)bombText.BackgroundTransparency=1
+bombText.Text="ENEMY BOMBS"bombText.TextColor3=Color3.fromRGB(150,180,200)
+bombText.TextScaled=true bombText.Font=Enum.Font.Gotham bombText.TextXAlignment=Enum.TextXAlignment.Left
+bombText.Parent=bombFrame
+
+-- Status Bar
+local status=Instance.new("TextLabel")status.Size=UDim2.new(1,-10,0,20)
+status.Position=UDim2.new(0,5,1,-25)status.BackgroundTransparency=1
+status.Text="🔍 ACTIVE SCANNING..."status.TextColor3=Color3.fromRGB(100,200,255)
+status.TextScaled=true status.Font=Enum.Font.GothamSemibold status.Parent=mainFrame
+
+-- ✨ DRAG SYSTEM
+local dragging,dragInput,startPos,startSize
+header.InputBegan:Connect(function(input)if input.UserInputType==Enum.UserInputType.MouseButton1 then
+ dragging=true dragInput=input startPos=mainFrame.Position end end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)if dragging and input==dragInput then
+ local delta=input.Position-dragInput.Position mainFrame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)end end)
+
+header.InputEnded:Connect(function(input)if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+
+-- 🎛️ MINIMIZE/MAXIMIZE
+minBtn.MouseButton1Click:Connect(function()
+ minimized=not minimized
+ TweenService:Create(mainFrame,TweenInfo.new(.3,Enum.EasingStyle.Back),{Size=UDim2.new(0,200,0,minimized and 40 or 120)}):Play()
+ minBtn.Text=minimized and"+"or"−"
+ bombFrame.Visible=not minimized
+ status.Visible=not minimized
+end)
+
+-- 🔄 MAIN SCAN LOOP
+spawn(function()
+ while wait(SCAN_INTERVAL)do
+  local bombs=scanEnemyBombs()
+  bombCount.Text=bombs>0 and bombs or"0"
+  
+  if bombs>0 then
+   bombCount.TextColor3=Color3.fromRGB(255,80,80)
+   bombFrame.BackgroundColor3=Color3.fromRGB(40,15,15)
+   status.Text="🚨 "..bombs.." ENEMY BOMB"..(bombs>1 and"S"or"").." DETECTED!"
+   status.TextColor3=Color3.fromRGB(255,100,100)
+  else
+   bombCount.TextColor3=Color3.fromRGB(0,255,150)
+   bombFrame.BackgroundColor3=Color3.fromRGB(15,30,20)
+   status.Text="✅ NO BOMBS - SAFE"
+   status.TextColor3=Color3.fromRGB(100,255,150)
+  end
+ end
+end)
+
+print("🎨 Aesthetic Candy Bomb Detector v4.0 LOADED!")
+print("🔴 RED HIGHLIGHTS = ENEMY BOMBS ON YOUR CANDY!")toggleCorner.CornerRadius = UDim.new(0, 8)
 toggleCorner.Parent = toggleBtn
 
 -- Minimize Button
